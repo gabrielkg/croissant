@@ -5,6 +5,14 @@ import scala.annotation.tailrec
 import scala.language.reflectiveCalls // Prevents warnings on compile
 import scala.collection.mutable.{Seq => MSeq}
 import java.util.zip._
+import htsjdk.samtools._;
+import htsjdk.samtools.util.Log;
+import htsjdk.samtools.util.ProgressLogger;
+import java.net.InetAddress;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+import scala.collection.JavaConversions._;
 
 // Version 2
 
@@ -111,6 +119,24 @@ object Croissant {
               new BufferedSource(stream)
             case None => Source.stdin
           }
+        }
+
+        val inputFile = new File(conf.alignment.toOption.get);
+        val eagerDecode = true; //useful to test (realistic) scenarios in which every record is always fully decoded.
+
+        val readerFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT);
+        if (eagerDecode) {
+            readerFactory.enable(SamReaderFactory.Option.EAGERLY_DECODE);
+        }
+
+        val ps = new PrintStream(System.out);
+
+        val bamReader = readerFactory.open(inputFile);
+        val header = bamReader.getFileHeader();
+        //val writer = new SAMFileWriterFactory().makeBAMWriter(header, true, outputFile) : null;
+        for {record <- bamReader} {
+          //writer.addAlignment(record);
+          ps.println(record.getCigar());
         }
 
         val s = conf.start()
