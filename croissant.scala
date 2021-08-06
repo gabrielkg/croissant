@@ -19,7 +19,9 @@ import scala.collection.JavaConversions._;
 class HaploConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     version("Croissant 0.2 (c) 2015-2016 Gabriel Keeble-Gagnere, DEDJTR")
     val alignment = opt[String](default = None,
-        descr="Gydle alignment file")
+        descr="BAM alignment file")
+    val sizes = opt[String](default = None,
+        descr="TSV file defining sizes of chromosomes")
     val verbose = opt[Boolean]()
     val mp = opt[Boolean](default = Some(false),
         descr="Aligned data is mate pair")
@@ -131,12 +133,18 @@ object Croissant {
 
         val ps = new PrintStream(System.out);
 
+        val referenceDict = readerFactory.getFileHeader(inputFile).getSequenceDictionary();
+        for (i <- 0 to referenceDict.size() - 1) {
+          var seqRec = referenceDict.getSequence(i);
+          ps.println(seqRec.getSequenceName(),seqRec.getSequenceLength());
+        }
+
         val bamReader = readerFactory.open(inputFile);
         val header = bamReader.getFileHeader();
         //val writer = new SAMFileWriterFactory().makeBAMWriter(header, true, outputFile) : null;
         for {record <- bamReader} {
           //writer.addAlignment(record);
-          ps.println(record.getCigar());
+          ps.println(record.getReferenceName(), record.getCigar());
         }
 
         val s = conf.start()
