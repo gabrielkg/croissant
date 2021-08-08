@@ -17,7 +17,7 @@ import scala.collection.JavaConversions._;
 // Version 2
 
 class HaploConf(arguments: Seq[String]) extends ScallopConf(arguments) {
-    version("Croissant 0.2 (c) 2015-2016 Gabriel Keeble-Gagnere, DEDJTR")
+    version("Croissant 0.3 (c) 2015-2021 Gabriel Keeble-Gagnere, Agriculture Victoria")
     val alignment = opt[String](default = None,
         descr="BAM alignment file")
     val sizes = opt[String](default = None,
