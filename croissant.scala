@@ -20,8 +20,6 @@ class HaploConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     version("Croissant 0.3 (c) 2015-2021 Gabriel Keeble-Gagnere, Agriculture Victoria")
     val alignment = opt[String](default = None,
         descr="BAM alignment file")
-    val sizes = opt[String](default = None,
-        descr="TSV file defining sizes of chromosomes")
     val verbose = opt[Boolean]()
     val mp = opt[Boolean](default = Some(false),
         descr="Aligned data is mate pair")
