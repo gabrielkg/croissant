@@ -19,7 +19,7 @@ import scala.collection.JavaConversions._;
 class HaploConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     version("Croissant 0.3 (c) 2015-2021 Gabriel Keeble-Gagnere, Agriculture Victoria")
     val alignment = opt[String](default = None,
-        descr="BAM alignment file")
+        descr="Sorted BAM alignment file")
     val verbose = opt[Boolean]()
     val mp = opt[Boolean](default = Some(false),
         descr="Aligned data is mate pair")
@@ -70,72 +70,9 @@ object Croissant {
         (record.getAlignmentStart(), record.getAlignmentEnd()))
     }
 
-    def convertLineToMismatches(l: Vector[String], sepChar: String): (Seq[(Int, Char)], Seq[(Int, Int)]) = {
-
-        def convertStrand(in: String): String = {
-            in match {
-                case "1+" | "+" => "+1"
-                case "1-" | "-" => "-1"
-                case "2+" => "+2"
-                case "2-" => "-2"
-            }
-        }
-
-        def cigarToOffsets(cigar: String): Seq[Int] = {
-            val pattern = "([0-9]*)([im])".r
-            var currPos = 0
-            var mms = Vector(): Vector[Int]
-            for (pattern(count,kind) <- pattern findAllIn cigar) {
-                currPos += count.toInt
-                if (kind == "m") {
-                    mms = mms :+ currPos
-                }
-            }
-            mms
-        }
-
-        def alignmentStringToMismatches(a: Vector[String], seq: String): (Seq[(Int,Char)], (Int, Int)) = {
-            val strand = convertStrand(a(0))(0)
-            val pair = convertStrand(a(0))(1)
-            val qstart = a(7).toInt // NOTE: query/subject can change with ordering of gydle output
-            val qend = a(8).toInt
-            val sstart = a(9).toInt
-            val send = a(10).toInt
-            val cigar = a(11)
-            if (strand == '+')
-                (cigarToOffsets(cigar).map(x => (x + sstart, seq(x + qstart - 1))), (sstart, send))
-            else
-                (cigarToOffsets(cigar).map(x => (x + sstart, (reverseComplement(seq.slice(qstart-1,qend)))(x))), (sstart, send))
-        }
-
-        val id = l(2)
-        val hits = l(7).toString.split("-").map(x => x.toInt).sum
-        val alStrings = l.slice(8, 8 + hits).map(x => x.split(" ").toVector)
-        val seqs = l(8 + hits).split(sepChar)
-        val read1Als = alStrings.filter(x => convertStrand(x(0))(1).toInt == '1')
-        val read2Als = alStrings.filter(x => convertStrand(x(0))(1).toInt == '2')
-        val mm1 = read1Als.map(x => alignmentStringToMismatches(x, seqs(0)))
-        val mm2 = read2Als.map(x => alignmentStringToMismatches(x, seqs(1)))
-        ((mm1.map(x => x._1) ++ mm2.map(x => x._1)).flatten.sortBy(_._1), (mm1.map(x => x._2) ++ mm2.map(x => x._2)))
-
-    }
-
     def main(args: Array[String]) {
 
         val conf = new HaploConf(args)
-
-        def reader(file: Option[String]): BufferedSource = {
-          file match {
-            case Some(file) =>
-              val stream = (if (file.endsWith("gz"))
-                new GZIPInputStream(new FileInputStream(file))
-              else
-                new FileInputStream(file)
-              )
-              new BufferedSource(stream)
-            case None => Source.stdin
-          }
-        }
 
         val inputFile = new File(conf.alignment.toOption.get);
         val eagerDecode = true; //useful to test (realistic) scenarios in which every record is always fully decoded.
