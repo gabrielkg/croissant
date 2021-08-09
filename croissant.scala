@@ -1,18 +1,19 @@
 import scala.io._
 import java.io._
-import org.rogach.scallop._; // Command-line parsing
+import org.rogach.scallop._ // Command-line parsing
 import scala.annotation.tailrec
 import scala.language.reflectiveCalls // Prevents warnings on compile
 import scala.collection.mutable.{Seq => MSeq}
+import scala.collection.mutable.Map
 import java.util.zip._
-import htsjdk.samtools._;
-import htsjdk.samtools.util.Log;
-import htsjdk.samtools.util.ProgressLogger;
-import java.net.InetAddress;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import scala.collection.JavaConversions._;
+import htsjdk.samtools._
+import htsjdk.samtools.util.Log
+import htsjdk.samtools.util.ProgressLogger
+import java.net.InetAddress
+import java.util.Arrays
+import java.util.List
+import java.util.stream.Collectors
+import scala.collection.JavaConversions._
 
 // Version 2
 
@@ -74,50 +75,55 @@ object Croissant {
 
         val conf = new HaploConf(args)
 
-        val inputFile = new File(conf.alignment.toOption.get);
-        val eagerDecode = true; //useful to test (realistic) scenarios in which every record is always fully decoded.
+        val inputFile = new File(conf.alignment.toOption.get)
+        val eagerDecode = true //useful to test (realistic) scenarios in which every record is always fully decoded.
 
-        val readerFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT);
+        val readerFactory = SamReaderFactory.makeDefault().validationStringency(ValidationStringency.SILENT)
         if (eagerDecode) {
-            readerFactory.enable(SamReaderFactory.Option.EAGERLY_DECODE);
+            readerFactory.enable(SamReaderFactory.Option.EAGERLY_DECODE)
         }
 
-        val ps = new PrintStream(System.out);
-
-        val referenceDict = readerFactory.getFileHeader(inputFile).getSequenceDictionary();
+        // Set up dictionary for reference sequence length lookup
+        val referenceSizeDict = Map[String,Int]()
+        val referenceDict = readerFactory.getFileHeader(inputFile).getSequenceDictionary()
         for (i <- 0 to referenceDict.size() - 1) {
-          var seqRec = referenceDict.getSequence(i);
-          ps.println(seqRec.getSequenceName(),seqRec.getSequenceLength());
+          var seqRec = referenceDict.getSequence(i)
+          referenceSizeDict += ((seqRec.getSequenceName(),seqRec.getSequenceLength()))
         }
 
-        val bamReader = readerFactory.open(inputFile);
-        val header = bamReader.getFileHeader();
-        //val writer = new SAMFileWriterFactory().makeBAMWriter(header, true, outputFile) : null;
-        for {record <- bamReader} {
-          //writer.addAlignment(record);
-          if (!(record.getCigarString() contains "D")) {
-            println((record.getReferenceName(), record.getCigar(), record.getAlignmentStart(),
-              record.getAlignmentEnd(),"->",mdTagToOffsets(record.getAttribute("MD").toString)));
-            println(convertSamRecordToMismatches(record))
-          }
-        }
-
+        // Set arguments
         val s = conf.start()
         val w = conf.window()
         val matePair = conf.mp()
         val covOnly = conf.covOnly()
 
-        val sepChar = if (matePair) "~" else "-"
+        // Open BAM file
+        val bamReader = readerFactory.open(inputFile);
+        val header = bamReader.getFileHeader();
+        // Check if sorted by coordinate (ie: by reference)
+        val sorted = header.getSortOrder().equals(SAMFileHeader.SortOrder.coordinate);
+        if (!sorted) {
+          throw new Exception("SAM/BAM needs to be sorted (eg: with samtools sort)")
+        }
+        else {
+          for {record <- bamReader} {
+            println(record)
+            //writer.addAlignment(record);
+            if (!(record.getCigarString() contains "D")) {
+              println((record.getReferenceName(), record.getCigar(), record.getAlignmentStart(),
+                record.getAlignmentEnd(),"->",mdTagToOffsets(record.getAttribute("MD").toString)));
+              println(convertSamRecordToMismatches(record))
+            }
+          }
+        }
 
-        val in = reader(conf.alignment.toOption).getLines.buffered
-
-        val firstLine = in.head.split("\t").toVector
-        var targetNow = firstLine(0)
-        var targetSize = firstLine(1).toInt
+        //val firstLine = in.head.split("\t").toVector
+        //var targetNow = firstLine(0)
+        //var targetSize = firstLine(1).toInt
 
         // FIRST PASS
 
-        while (in.hasNext) {
+        /*while (in.hasNext) {
 
           var base = MSeq.fill(targetSize + 1)((0, Vector(): Vector[(Seq[(Int, Char)], Seq[(Int, Int)])]))
           var lines = Vector(): Vector[(Seq[(Int, Char)], Seq[(Int, Int)])]
@@ -201,18 +207,12 @@ object Croissant {
                         haps += 1 // Add the reference haplotype.
                     haps
                 }
-                /*
-                
-                The logic here:
 
-                If the coverage at this base is greater than 1, then if haps=0 (eg: if no mismatches
-                here), then number of haplotypes is 1. Otherwise, haps is the right number.
-
-                If coverage at this base is exactly 1, then the number of haplotypes is 1.
-
-                Finally, if none of the above, coverage must be 0, so haps = 0.
-
-                */
+                // The logic here:
+                // If the coverage at this base is greater than 1, then if haps=0 (eg: if no mismatches
+                // here), then number of haplotypes is 1. Otherwise, haps is the right number.
+                // If coverage at this base is exactly 1, then the number of haplotypes is 1.
+                // Finally, if none of the above, coverage must be 0, so haps = 0.
 
                 else if (base(i)._1 > 1) { // If there are no reads above this base with mismatches, but
                                            // coverage > 0.
@@ -229,7 +229,7 @@ object Croissant {
             targetNow = in.head.split("\t")(0)
             targetSize = in.head.split("\t")(1).toInt
           }
-        }
+        }*/
     }
 }
 
