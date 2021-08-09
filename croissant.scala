@@ -55,19 +55,19 @@ object Croissant {
         seq.reverse.map(complement(_))
     }
 
-    def mdTagToOffsets(md: String): Seq[(Int, Char)] = {
+    def mdTagToOffsets(md: String, startpos: Int): Seq[(Int, Char)] = {
       val pattern = "([0-9]*)([ACGT])".r
       var currPos = 0
       var mms = Vector(): Vector[(Int, Char)]
       for (pattern(count,kind) <- pattern findAllIn md) {
         currPos += count.toInt
-        mms = mms :+ Tuple2(currPos,kind(0))
+        mms = mms :+ Tuple2(currPos+startpos,kind(0))
       }
       mms
     }
 
     def convertSamRecordToMismatches(record: SAMRecord): (Seq[(Int, Char)], (Int, Int)) = {
-      (mdTagToOffsets(record.getAttribute("MD").toString),
+      (mdTagToOffsets(record.getAttribute("MD").toString, record.getAlignmentStart()),
         (record.getAlignmentStart(), record.getAlignmentEnd()))
     }
 
@@ -102,17 +102,41 @@ object Croissant {
         val header = bamReader.getFileHeader();
         // Check if sorted by coordinate (ie: by reference)
         val sorted = header.getSortOrder().equals(SAMFileHeader.SortOrder.coordinate);
+
+        var base = MSeq.fill(1)((0, Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]))
+        var lines = Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]
+        var readCount = 0
+
         if (!sorted) {
           throw new Exception("SAM/BAM needs to be sorted (eg: with samtools sort)")
         }
         else {
-          for {record <- bamReader} {
-            println(record)
+          var targetNow = ""
+          var refCount = 0
+          for {record <- bamReader; if (!(record.getReadUnmappedFlag()) && record.getAlignmentStart() < 100000 && refCount < 2)} {
             //writer.addAlignment(record);
-            if (!(record.getCigarString() contains "D")) {
-              println((record.getReferenceName(), record.getCigar(), record.getAlignmentStart(),
-                record.getAlignmentEnd(),"->",mdTagToOffsets(record.getAttribute("MD").toString)));
-              println(convertSamRecordToMismatches(record))
+            if (!(record.getCigarString() contains "D")) { // Ignore indels for now
+              if (record.getReferenceName() != targetNow) {
+                targetNow = record.getReferenceName()
+                println(s"Target now ${targetNow}")
+                // New reference set-up
+                base = MSeq.fill(100000 + 1)((0, Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]))
+                lines = Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]
+                refCount += 1
+              }
+              // Add this "read" to all positions for which it has a mismatch.
+              val read = convertSamRecordToMismatches(record)
+              for (mm <- read._1.map(_._1)) {
+                base(mm) = (base(mm)._1, base(mm)._2 :+ read)
+              }
+              lines = lines :+ read
+              readCount += 1
+              if (readCount % 100 == 0) {
+                println(s"Processed ${readCount} reads")
+              }
+                //println((record.getReferenceName(), record.getCigar(), record.getAlignmentStart(),
+                //  record.getAlignmentEnd(),"->",record.getAttribute("MD").toString));
+                //println(convertSamRecordToMismatches(record)) 
             }
           }
         }
