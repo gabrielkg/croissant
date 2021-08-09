@@ -56,6 +56,22 @@ object Croissant {
         seq.reverse.map(complement(_))
     }
 
+    def mdTagToOffsets(md: String): Seq[(Int, Char)] = {
+      val pattern = "([0-9]*)([ACGT])".r
+      var currPos = 0
+      var mms = Vector(): Vector[(Int, Char)]
+      for (pattern(count,kind) <- pattern findAllIn md) {
+        currPos += count.toInt
+        mms = mms :+ Tuple2(currPos,kind(0))
+      }
+      mms
+    }
+
+    def convertSamRecordToMismatches(record: SAMRecord): (Seq[(Int, Char)], (Int, Int)) = {
+      (mdTagToOffsets(record.getAttribute("MD").toString),
+        (record.getAlignmentStart(), record.getAlignmentEnd()))
+    }
+
     def convertLineToMismatches(l: Vector[String], sepChar: String): (Seq[(Int, Char)], Seq[(Int, Int)]) = {
 
         def convertStrand(in: String): String = {
@@ -144,7 +160,11 @@ object Croissant {
         //val writer = new SAMFileWriterFactory().makeBAMWriter(header, true, outputFile) : null;
         for {record <- bamReader} {
           //writer.addAlignment(record);
-          ps.println(record.getReferenceName(), record.getCigar());
+          if (!(record.getCigarString() contains "D")) {
+            println((record.getReferenceName(), record.getCigar(), record.getAlignmentStart(),
+              record.getAlignmentEnd(),"->",mdTagToOffsets(record.getAttribute("MD").toString)));
+            println(convertSamRecordToMismatches(record))
+          }
         }
 
         val s = conf.start()
