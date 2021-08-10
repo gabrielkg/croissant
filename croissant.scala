@@ -35,6 +35,13 @@ class HaploConf(arguments: Seq[String]) extends ScallopConf(arguments) {
     verify()
 }
 
+
+case class Mismatch(position: Int, allele: Char)
+
+case class Extent(start: Int, end: Int)
+
+case class Read(mismatches: Seq[Mismatch], location: Extent)
+
 object Croissant {
     /*
         DNA sequence helper methods
@@ -55,20 +62,20 @@ object Croissant {
         seq.reverse.map(complement(_))
     }
 
-    def mdTagToOffsets(md: String, startpos: Int): Seq[(Int, Char)] = {
+    def mdTagToMismatches(md: String, startpos: Int): Seq[Mismatch] = {
       val pattern = "([0-9]*)([ACGT])".r
       var currPos = 0
-      var mms = Vector(): Vector[(Int, Char)]
+      var mms = Vector(): Vector[Mismatch]
       for (pattern(count,kind) <- pattern findAllIn md) {
         currPos += count.toInt
-        mms = mms :+ Tuple2(currPos+startpos,kind(0))
+        mms = mms :+ Mismatch(currPos+startpos,kind(0))
       }
       mms
     }
 
-    def convertSamRecordToMismatches(record: SAMRecord): (Seq[(Int, Char)], (Int, Int)) = {
-      (mdTagToOffsets(record.getAttribute("MD").toString, record.getAlignmentStart()),
-        (record.getAlignmentStart(), record.getAlignmentEnd()))
+    def convertSamRecordToMismatches(record: SAMRecord): Read = {
+      Read(mdTagToMismatches(record.getAttribute("MD").toString, record.getAlignmentStart()),
+        Extent(record.getAlignmentStart(), record.getAlignmentEnd()))
     }
 
     def main(args: Array[String]) {
@@ -103,8 +110,6 @@ object Croissant {
         // Check if sorted by coordinate (ie: by reference)
         val sorted = header.getSortOrder().equals(SAMFileHeader.SortOrder.coordinate);
 
-        var base = MSeq.fill(1)((0, Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]))
-        var lines = Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]
         var readCount = 0
 
         if (!sorted) {
@@ -113,23 +118,14 @@ object Croissant {
         else {
           var targetNow = ""
           var refCount = 0
-          for {record <- bamReader; if (!(record.getReadUnmappedFlag()) && record.getAlignmentStart() < 100000 && refCount < 2)} {
-            //writer.addAlignment(record);
+          for {record <- bamReader; if (!(record.getReadUnmappedFlag()))} {
             if (!(record.getCigarString() contains "D")) { // Ignore indels for now
               if (record.getReferenceName() != targetNow) {
                 targetNow = record.getReferenceName()
                 println(s"Target now ${targetNow}")
                 // New reference set-up
-                base = MSeq.fill(100000 + 1)((0, Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]))
-                lines = Vector(): Vector[(Seq[(Int, Char)], (Int, Int))]
-                refCount += 1
               }
-              // Add this "read" to all positions for which it has a mismatch.
               val read = convertSamRecordToMismatches(record)
-              for (mm <- read._1.map(_._1)) {
-                base(mm) = (base(mm)._1, base(mm)._2 :+ read)
-              }
-              lines = lines :+ read
               readCount += 1
               if (readCount % 100 == 0) {
                 println(s"Processed ${readCount} reads")
