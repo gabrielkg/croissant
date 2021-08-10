@@ -42,6 +42,25 @@ case class Extent(start: Int, end: Int)
 
 case class Read(mismatches: Seq[Mismatch], location: Extent)
 
+class AlignmentWindow() {
+  println("AlignmentWindow created")
+
+  val state = Map[Int,Seq[Read]]()
+  var currentPosition = 1
+
+  def addRead(read: Read) {
+    for (pos <- currentPosition to read.location.end) {
+      if (!(state contains pos)) {
+        state += ((pos,Vector():Vector[Read]))
+      }
+    }
+    for (m <- read.mismatches) {
+      state(m.position) :+ read
+      println(s"Now tracking ${state.keys.size} positions")
+    }
+  }
+}
+
 object Croissant {
     /*
         DNA sequence helper methods
@@ -112,6 +131,8 @@ object Croissant {
 
         var readCount = 0
 
+        val alnWindow = new AlignmentWindow()
+
         if (!sorted) {
           throw new Exception("SAM/BAM needs to be sorted (eg: with samtools sort)")
         }
@@ -126,6 +147,7 @@ object Croissant {
                 // New reference set-up
               }
               val read = convertSamRecordToMismatches(record)
+              alnWindow.addRead(read)
               readCount += 1
               if (readCount % 100 == 0) {
                 println(s"Processed ${readCount} reads")
