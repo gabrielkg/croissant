@@ -28,10 +28,6 @@ class HaploConf(arguments: Seq[String]) extends ScallopConf(arguments) {
         descr="Only report coverage (no haplotype information)")
     val window = opt[Int](default = Some(1),
         descr="Number of mismatches around target to consider in haplotype calculation")
-    val start = opt[Int](default = Some(0),
-        descr="Starting base position")
-    val end = opt[Int](default = Some(-1),
-        descr="End base position")
     verify()
 }
 
@@ -42,22 +38,47 @@ case class Extent(start: Int, end: Int)
 
 case class Read(mismatches: Seq[Mismatch], location: Extent)
 
-class AlignmentWindow() {
+class AlignmentWindow(window: Int) {
   println("AlignmentWindow created")
 
-  val state = Map[Int,Seq[Read]]()
+  val state = Map[Int,(Int,Seq[Read])]()
+  var reads = Seq[Read]()
   var currentPosition = 1
 
   def addRead(read: Read) {
+    this.reads :+ read
     for (pos <- currentPosition to read.location.end) {
       if (!(state contains pos)) {
-        state += ((pos,Vector():Vector[Read]))
+        if (pos >= read.location.start) {
+          state += ((pos,(1,Vector():Vector[Read])))
+        }
+        else {
+          state += ((pos,(0,Vector():Vector[Read])))
+        } 
+      }
+      else {
+        state(pos) = (state(pos)._1 + 1, state(pos)._2)
       }
     }
     for (m <- read.mismatches) {
-      state(m.position) :+ read
-      println(s"Now tracking ${state.keys.size} positions")
+      state(m.position)._2 :+ read
     }
+    currentPosition = read.location.end
+    dropBefore(currentPosition - window)
+    println(s"Now ${this.reads.size} reads")
+  }
+
+  def dropBefore(position: Int) {
+    val toDrop = state.keys.filter(_ < position)
+    for (p <- toDrop) {
+      removePosition(p)
+    }
+    this.reads = this.reads.filter(_.location.end < position)
+    println(s"Now ${this.reads.size} reads")
+  }
+
+  def removePosition(position: Int) {
+    state -= position
   }
 }
 
@@ -118,7 +139,6 @@ object Croissant {
         }
 
         // Set arguments
-        val s = conf.start()
         val w = conf.window()
         val matePair = conf.mp()
         val covOnly = conf.covOnly()
@@ -131,7 +151,7 @@ object Croissant {
 
         var readCount = 0
 
-        val alnWindow = new AlignmentWindow()
+        val alnWindow = new AlignmentWindow(500)
 
         if (!sorted) {
           throw new Exception("SAM/BAM needs to be sorted (eg: with samtools sort)")
