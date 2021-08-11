@@ -60,8 +60,7 @@ class AlignmentWindow(window: Int) {
       }
       else {
         val minEx = if (state(pos)._2._1 > read.location.start) read.location.start else state(pos)._2._1
-        val maxEx = if (state(pos)._2._2 < read.location.end) read.location.end else
-        state(pos)._2._2
+        val maxEx = if (state(pos)._2._2 < read.location.end) read.location.end else state(pos)._2._2
         state(pos) = (state(pos)._1 + 1, (minEx,maxEx), state(pos)._3)
       }
     }
@@ -71,14 +70,13 @@ class AlignmentWindow(window: Int) {
     }
     for (m <- read.mismatches) {
       for (r <- readsOverlappingPosition(m.position)) {
+        println(r)
         state(m.position)._3 :+ r
       }
       state(m.position)._3 :+ read
     }
     currentPosition = read.location.end
     callAndDropBefore(currentPosition - window)
-    println(s"currentPosition = ${currentPosition}")
-    println(s"Now ${reads.size} reads")
   }
 
   def readsOverlappingPosition(pos: Int): Seq[Read] = {
@@ -86,18 +84,18 @@ class AlignmentWindow(window: Int) {
   }
 
   def callAndDropBefore(position: Int) {
-    val toDrop = state.keys.filter(_ < position)
+    val toDrop = state.keys.filter(_ < position).toSeq.sorted
     for (p <- toDrop) {
-      println(p, callPosition(p)) // We have maximum info at this point
+      println(s"${p}\t${callPosition(p)}") // We have maximum info at this point
       removePosition(p)
     }
     reads = reads.dropWhile(_.location.end < position)
-    println(s"Now ${reads.size} reads")
   }
 
   def callPosition(position: Int): Int = {
+    println(s"callPosition: position = ${position}, state(position)._3.size = ${state(position)._3.size}")
     if (state(position)._1 > 0 && state(position)._3.size == 0) {
-      1
+      haps = 1
     }
     else {
       var myset = Set[String]()
@@ -125,7 +123,7 @@ class AlignmentWindow(window: Int) {
         haps
       }
     }
-    0
+    haps
   }
 
   def removePosition(position: Int) {
