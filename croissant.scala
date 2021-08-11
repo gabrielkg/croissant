@@ -43,7 +43,8 @@ class AlignmentWindow(window: Int) {
   println("AlignmentWindow created")
 
   // state tracks for each pos: coverage, extent of reads, and list of reads
-  val state = Map[Int,(Int,(Int,Int),Seq[Read])]()
+  type ReadBuf = ArrayBuffer[Read]
+  val state = Map[Int,(Int,(Int,Int),ReadBuf)]()
   var reads = ArrayBuffer[Read]()
   var currentPosition = 1
   var haps = 0
@@ -52,10 +53,10 @@ class AlignmentWindow(window: Int) {
     for (pos <- currentPosition to read.location.end) {
       if (!(state contains pos)) {
         if (pos >= read.location.start) {
-          state += ((pos,(1,(read.location.start,read.location.end),Vector[Read]())))
+          state += ((pos,(1,(read.location.start,read.location.end),new ReadBuf)))
         }
         else {
-          state += ((pos,(0,(pos,pos),Vector[Read]())))
+          state += ((pos,(0,(pos,pos),new ReadBuf)))
         } 
       }
       else {
@@ -71,15 +72,15 @@ class AlignmentWindow(window: Int) {
     for (m <- read.mismatches) {
       for (r <- readsOverlappingPosition(m.position)) {
         println(r)
-        state(m.position)._3 :+ r
+        state(m.position)._3 += r
       }
-      state(m.position)._3 :+ read
+      state(m.position)._3 += read
     }
     currentPosition = read.location.end
     callAndDropBefore(currentPosition - window)
   }
 
-  def readsOverlappingPosition(pos: Int): Seq[Read] = {
+  def readsOverlappingPosition(pos: Int): ReadBuf = {
     reads.filter(x => x.location.start <= pos && x.location.end >= pos)    
   }
 
