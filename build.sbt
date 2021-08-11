@@ -1,7 +1,3 @@
-import com.github.retronym.SbtOneJar._
-
-oneJarSettings
-
 scalaVersion := "2.11.8"
 
 libraryDependencies += "org.rogach" %% "scallop" % "3.1.1"
