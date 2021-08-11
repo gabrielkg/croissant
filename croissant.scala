@@ -4,6 +4,7 @@ import org.rogach.scallop._ // Command-line parsing
 import scala.annotation.tailrec
 import scala.language.reflectiveCalls // Prevents warnings on compile
 import scala.collection.mutable.{Seq => MSeq}
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Map
 import java.util.zip._
 import htsjdk.samtools._
@@ -42,11 +43,12 @@ class AlignmentWindow(window: Int) {
   println("AlignmentWindow created")
 
   val state = Map[Int,(Int,Seq[Read])]()
-  var reads = Seq[Read]()
+  var reads = ArrayBuffer[Read]()
   var currentPosition = 1
 
   def addRead(read: Read) {
-    this.reads :+ read
+    reads :+= read
+    println(s"Now ${reads.size} reads")
     for (pos <- currentPosition to read.location.end) {
       if (!(state contains pos)) {
         if (pos >= read.location.start) {
@@ -65,7 +67,7 @@ class AlignmentWindow(window: Int) {
     }
     currentPosition = read.location.end
     dropBefore(currentPosition - window)
-    println(s"Now ${this.reads.size} reads")
+    println(s"Now ${reads.size} reads")
   }
 
   def dropBefore(position: Int) {
@@ -73,8 +75,8 @@ class AlignmentWindow(window: Int) {
     for (p <- toDrop) {
       removePosition(p)
     }
-    this.reads = this.reads.filter(_.location.end < position)
-    println(s"Now ${this.reads.size} reads")
+    reads = reads.dropWhile(_.location.end < position)
+    println(s"Now ${reads.size} reads")
   }
 
   def removePosition(position: Int) {
