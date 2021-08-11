@@ -71,7 +71,6 @@ class AlignmentWindow(window: Int) {
     }
     for (m <- read.mismatches) {
       for (r <- readsOverlappingPosition(m.position)) {
-        println(r)
         state(m.position)._3 += r
       }
       state(m.position)._3 += read
@@ -106,21 +105,25 @@ class AlignmentWindow(window: Int) {
         // Calculate positions of all mismatches from all reads stored at this base.
 
         val mms = state(position)._3.map(_.mismatches).flatten.map(_.position).toSet.toVector.sorted
+        println("mms",mms)
 
         for (r <- state(position)._3) { // Step through each read at this base.
           var mystring = ""
           for (m <- mms) {
             var here = r.mismatches.filter(_.position == m)
+            // If this read has a mismatch here, add its allele to mystring
             if (here.size > 0) mystring = mystring + here.head.allele
+            // If the read covers this position, add "*" to mystring
             else if (r.location.start <= m && r.location.end >= m) mystring = mystring + "*"
+            // Otherwise, add " " to mystring
             else mystring = mystring + " "
           }
+          println(mystring, r)
           myset = myset + mystring
         }
-        val hapstrings = myset.map(x => x.trim).filter(_.size == mms.size)
-        haps = hapstrings.size
-        if (!(hapstrings.contains("*"*mms.size)) && (state(position)._3.map(_.mismatches).flatten.filter(_.position == position).size < state(position)._1))
-          haps += 1 // Add the reference haplotype.
+        println("myset",myset)
+        //val hapstrings = myset.map(x => x.trim).filter(_.size == mms.size)
+        haps = myset.size
         haps
       }
     }
