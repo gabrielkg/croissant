@@ -7,7 +7,7 @@ Fast and simple haplotype counting.
 Only ```sbt``` is required; it handles the rest. Once it is installed:
 
 ```
-git clone git@github.com:gabrielkg/croissant.git
+git clone https://github.com/gabrielkg/croissant.git
 cd croissant
 sbt "runMain Croissant --help"
 ```
