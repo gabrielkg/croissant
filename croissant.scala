@@ -14,7 +14,7 @@ import java.net.InetAddress
 import java.util.Arrays
 import java.util.List
 import java.util.stream.Collectors
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 
 // Version 2
 
@@ -212,7 +212,7 @@ object Croissant {
         else {
           var targetNow = ""
           var refCount = 0
-          for {record <- bamReader; if (!(record.getReadUnmappedFlag()))} {
+          for {record <- bamReader.asScala; if (!(record.getReadUnmappedFlag()))} {
             if (!(record.getCigarString() contains "D")) { // Ignore indels for now
               if (record.getReferenceName() != targetNow) {
                 targetNow = record.getReferenceName()
