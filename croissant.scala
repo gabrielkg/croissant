@@ -37,7 +37,7 @@ case class Mismatch(position: Int, allele: Char)
 
 case class Extent(start: Int, end: Int)
 
-case class Read(mismatches: Seq[Mismatch], location: Extent)
+case class Read(name: String, mismatches: Seq[Mismatch], location: Extent)
 
 class AlignmentWindow(window: Int) {
   println("AlignmentWindow created")
@@ -71,7 +71,8 @@ class AlignmentWindow(window: Int) {
     }
     for (m <- read.mismatches) {
       for (r <- readsOverlappingPosition(m.position)) {
-        state(m.position)._3 += r
+        if (!(state(m.position)._3 contains r))
+          state(m.position)._3 += r
       }
     }
     currentPosition = read.location.end
@@ -167,7 +168,7 @@ object Croissant {
     }
 
     def convertSamRecordToMismatches(record: SAMRecord): Read = {
-      Read(mdTagToMismatches(record.getAttribute("MD").toString,
+      Read(record.getReadName(), mdTagToMismatches(record.getAttribute("MD").toString,
         record.getAlignmentStart(),record.getReadString()),
         Extent(record.getAlignmentStart(), record.getAlignmentEnd()))
     }
