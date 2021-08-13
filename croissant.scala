@@ -73,7 +73,6 @@ class AlignmentWindow(window: Int) {
       for (r <- readsOverlappingPosition(m.position)) {
         state(m.position)._3 += r
       }
-      state(m.position)._3 += read
     }
     currentPosition = read.location.end
     callAndDropBefore(currentPosition - window)
@@ -155,19 +154,21 @@ object Croissant {
         seq.reverse.map(complement(_))
     }
 
-    def mdTagToMismatches(md: String, startpos: Int): Seq[Mismatch] = {
+    def mdTagToMismatches(md: String, startpos: Int, readSeq: String): Seq[Mismatch] = {
       val pattern = "([0-9]*)([ACGT])".r
       var currPos = 0
       var mms = Vector(): Vector[Mismatch]
       for (pattern(count,kind) <- pattern findAllIn md) {
         currPos += count.toInt
-        mms = mms :+ Mismatch(currPos+startpos,kind(0))
+        mms = mms :+ Mismatch(currPos+startpos,readSeq(currPos))
+        currPos += 1
       }
       mms
     }
 
     def convertSamRecordToMismatches(record: SAMRecord): Read = {
-      Read(mdTagToMismatches(record.getAttribute("MD").toString, record.getAlignmentStart()),
+      Read(mdTagToMismatches(record.getAttribute("MD").toString,
+        record.getAlignmentStart(),record.getReadString()),
         Extent(record.getAlignmentStart(), record.getAlignmentEnd()))
     }
 
